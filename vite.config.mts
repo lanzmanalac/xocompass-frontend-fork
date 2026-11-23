@@ -4,12 +4,14 @@ import vercel from "./vercel.json";
 
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
-  const localPreview = command === "serve" && env.VITE_API_BASE_URL === "/backend";
+  const apiBaseUrl = env.VITE_API_BASE_URL ?? "/backend";
+  const localPreview = command === "serve" && apiBaseUrl === "/backend";
   const preview = process.env.VERCEL_ENV === "preview" || localPreview;
   return {
     plugins: [react()],
     define: {
-      "import.meta.env.XOCOMPASS_HOSTED_PREVIEW": JSON.stringify(preview && env.VITE_API_BASE_URL === "/backend"),
+      "import.meta.env.VITE_API_BASE_URL": JSON.stringify(apiBaseUrl),
+      "import.meta.env.XOCOMPASS_HOSTED_PREVIEW": JSON.stringify(preview && apiBaseUrl === "/backend"),
     },
     server: {
       port: 5173,
