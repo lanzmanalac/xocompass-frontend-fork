@@ -1,3 +1,4 @@
+import type { PublicationSnapshot } from "../types/publication";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   CalendarRange,
@@ -31,6 +32,7 @@ interface MetricsRouteState {
 
 interface BusinessAnalyticsPageProps {
   isBackgroundPreview?: boolean;
+  snapshot?: PublicationSnapshot;
 }
 
 interface StatCardProps {
@@ -134,6 +136,7 @@ const StatCard: React.FC<StatCardProps> = ({
 
 export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
   isBackgroundPreview = false,
+  snapshot,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -161,9 +164,9 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
   const preferredModelVersion =
     routeState?.selectedModelVersion ?? storedModelVersion ?? "";
 
-  const [businessAnalytics, setBusinessAnalytics] =
+  const [nativeBusinessAnalytics, setBusinessAnalytics] =
     useState<BusinessAnalyticsResponse | null>(null);
-  const [overallBusinessAnalytics, setOverallBusinessAnalytics] =
+  const [nativeOverallBusinessAnalytics, setOverallBusinessAnalytics] =
     useState<BusinessAnalyticsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -175,6 +178,9 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
   const [flippedKpis, setFlippedKpis] = useState<Record<string, boolean>>({});
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
+  const businessAnalytics = snapshot ? snapshot.business_analytics[selectedYearView] : nativeBusinessAnalytics;
+  const overallBusinessAnalytics = snapshot ? snapshot.business_analytics.overall : nativeOverallBusinessAnalytics;
+
   useEffect(() => {
     if (selectedYearView !== "overall") {
       setNetRevenueGranularity("month");
@@ -183,6 +189,7 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
   }, [selectedYearView]);
 
   useEffect(() => {
+    if (snapshot) return;
     const fetchModels = async () => {
       try {
         setIsLoadingModels(true);
@@ -197,13 +204,13 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
     };
 
     fetchModels();
-  }, []);
+  }, [snapshot]);
 
-  const hasNoData = !isLoadingModels && models.length === 0;
+  const hasNoData = !snapshot && !isLoadingModels && models.length === 0;
   const shouldShowColdStart = hasNoData && !isBackgroundPreview;
   const effectiveModelId = useMemo(
-    () => resolveEffectiveModelId(models, preferredModelId),
-    [models, preferredModelId]
+    () => snapshot ? null : resolveEffectiveModelId(models, preferredModelId),
+    [snapshot, models, preferredModelId]
   );
   const effectiveModelVersion = useMemo(() => {
     if (effectiveModelId == null) return preferredModelVersion;
@@ -275,26 +282,29 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
   }, [effectiveModelId, shouldShowColdStart]);
 
   useEffect(() => {
+    if (snapshot) return;
     try {
       localStorage.setItem("xocompass:selectedModelId", String(effectiveModelId));
       localStorage.setItem("xocompass:selectedModelVersion", effectiveModelVersion);
     } catch {
       // Ignore localStorage errors in restricted environments.
     }
-  }, [effectiveModelId, effectiveModelVersion]);
+  }, [snapshot, effectiveModelId, effectiveModelVersion]);
 
   const growthRate = businessAnalytics?.growth_rate ?? 0;
   const growthLabel = `${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`;
   const bookingsByYearData = businessAnalytics?.bookings_by_year ?? [];
   const yearOptions = useMemo(
     () => {
+      if (snapshot) return Object.keys(snapshot.business_analytics)
+        .filter(key => /^\d{4}$/.test(key)).map(Number).sort((a, b) => a - b);
       if (availableYears.length) return availableYears;
       return bookingsByYearData
         .map((point) => Number(point.year))
         .filter((year) => Number.isFinite(year))
         .sort((a, b) => a - b);
     },
-    [availableYears, bookingsByYearData]
+    [snapshot, availableYears, bookingsByYearData]
   );
   const firstYear = businessAnalytics?.date_coverage?.start_date
     ? new Date(businessAnalytics.date_coverage.start_date).getFullYear()
@@ -304,7 +314,7 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
     : Number(bookingsByYearData[bookingsByYearData.length - 1]?.year ?? 0);
   const isOverallView = selectedYearView === "overall";
   const selectedYear = isOverallView ? null : Number(selectedYearView);
-  const canonicalAnalytics = isOverallView
+  const canonicalAnalytics = snapshot || isOverallView
     ? businessAnalytics
     : overallBusinessAnalytics ?? businessAnalytics;
   const selectedYearBookingsByMonth = useMemo(() => {
@@ -386,12 +396,12 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
       ? "Mean booking lead time before travel date (from linked dataset)."
       : "Lead time summary not available for this model snapshot (retrain or relink dataset if needed).";
   const totalRecordsDisplay = (
-    isOverallView
+    snapshot || isOverallView
       ? businessAnalytics?.total_transaction_count ?? 0
       : selectedYearBookingsByMonth.reduce((sum, point) => sum + point.bookings, 0)
   ).toLocaleString("en-US");
   const totalRevenueDisplay = formatCompactRevenue(
-    isOverallView
+    snapshot || isOverallView
       ? businessAnalytics?.total_revenue != null && Number.isFinite(businessAnalytics.total_revenue)
         ? businessAnalytics.total_revenue
         : 0
@@ -432,12 +442,12 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
     lastYear,
   ]);
   const avgWeeklyBookingsDisplay = (
-    isOverallView
+    snapshot || isOverallView
       ? businessAnalytics?.avg_weekly_bookings ?? 0
       : selectedYearBookingsByMonth.reduce((sum, point) => sum + point.bookings, 0) / 52
   ).toFixed(2);
   const weeklyObservationsDisplay = (
-    isOverallView
+    snapshot || isOverallView
       ? businessAnalytics?.total_weekly_records ?? 0
       : selectedYearBookingsByMonth.length * 4
   ).toLocaleString("en-US");
@@ -555,7 +565,7 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
           <p className="mt-1 text-[14px] text-slate-600">
             High-level performance overview for KJS POS and travel demand analytics.{" "}
             <span className="font-medium text-slate-700">
-              {effectiveModelId != null
+              {snapshot ? `Report ${snapshot.run_id}` : effectiveModelId != null
                 ? `Model ${effectiveModelVersion} (ID ${effectiveModelId})`
                 : "Selecting latest trained model…"}
             </span>
@@ -563,7 +573,7 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
         </div>
       </div>
 
-      {isLoading && (
+      {!snapshot && isLoading && (
         <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[14px] text-slate-600 shadow-sm">
           Loading dashboard stats from backend...
         </p>
@@ -575,7 +585,7 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
         </p>
       )}
 
-      {isLoadingModels && !isBackgroundPreview ? (
+      {!snapshot && isLoadingModels && !isBackgroundPreview ? (
         <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[14px] text-slate-600 shadow-sm">
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-teal-600 border-t-transparent align-middle" />{" "}
           Loading model registry…
@@ -753,7 +763,7 @@ export const BusinessAnalyticsPage: React.FC<BusinessAnalyticsPageProps> = ({
         </>
       )}
       {!shouldShowColdStart && (
-        <div className="fixed bottom-6 right-10 z-40">
+        <div className={snapshot ? "mt-5 flex justify-end" : "fixed bottom-6 right-10 z-40"}>
           <div className="flex items-center gap-3 rounded-2xl border border-teal-200 bg-white px-4 py-2.5 shadow-[0_10px_28px_rgba(2,132,199,0.22)] ring-1 ring-teal-100/70">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
               KPI Year View

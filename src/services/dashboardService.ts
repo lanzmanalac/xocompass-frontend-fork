@@ -1,3 +1,5 @@
+import { ApiClientError } from "../lib/apiError";
+import { isSnapshot, type PublicationSnapshot } from "../types/publication";
 import { apiRequest } from "../lib/apiClient";
 import type { components } from "../types/api";
 
@@ -82,5 +84,28 @@ export async function renameModel(
 export async function deleteModel(modelId: number): Promise<void> {
   await apiRequest<unknown>(`/api/models/${encodeURIComponent(String(modelId))}`, {
     method: "DELETE",
+  });
+}
+
+export async function getPublishedForecast(signal?: AbortSignal): Promise<PublicationSnapshot | null> {
+  try {
+    const response = await apiRequest<PublicationSnapshot | { snapshot: PublicationSnapshot }>(
+      "/api/viewer/published-forecast", { signal, cache: "no-store" }
+    );
+    const snapshot = response && "snapshot" in response ? response.snapshot : response;
+    if (!isSnapshot(snapshot)) throw new Error("The published report is incomplete.");
+    return snapshot;
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404 && error.code === "no_published_forecast") return null;
+    throw error;
+  }
+}
+
+export function publishForecast(snapshot: PublicationSnapshot, signal: AbortSignal) {
+  return apiRequest<{ run_id: string; published_at: string }>("/api/viewer/publish", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(snapshot),
+    signal,
   });
 }

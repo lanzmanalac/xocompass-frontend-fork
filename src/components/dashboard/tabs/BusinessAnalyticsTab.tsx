@@ -573,7 +573,7 @@ export const BusinessAnalyticsTab: React.FC<BusinessAnalyticsTabProps> = ({
               <MonthYearGranularityToggle
                 value={bookingsGranularity}
                 onChange={onBookingsGranularityChange}
-                aria-label="Bookings over time breakdown"
+                ariaLabel="Bookings over time breakdown"
               />
             ) : undefined
           }
@@ -589,7 +589,7 @@ export const BusinessAnalyticsTab: React.FC<BusinessAnalyticsTabProps> = ({
               <MonthYearGranularityToggle
                 value={netRevenueGranularity}
                 onChange={onNetRevenueGranularityChange}
-                aria-label="Net revenue breakdown"
+                ariaLabel="Net revenue breakdown"
               />
             ) : undefined
           }

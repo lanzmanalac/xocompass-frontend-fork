@@ -1,5 +1,7 @@
+import { hostedPreview, browserTrainingEnabled } from "../lib/preview";
+import { BrowserTraining } from "../components/BrowserTraining";
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { BusinessAnalyticsPage } from "./BusinessAnalyticsPage";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
@@ -254,6 +256,18 @@ const SaveCard: React.FC<SaveCardProps> = ({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export const SavesPage: React.FC = () => {
+  const { user, role } = useAuth();
+  if (!hostedPreview) return <NativeSavesPage />;
+  if (user && browserTrainingEnabled && canUploadOrRetrain(role)) {
+    return <BrowserTraining key={user.id} userId={user.id} />;
+  }
+  return <main className="p-6">
+    <p>Browser training is unavailable in this Preview.</p>
+    <Link className="text-teal-700 underline" to="/business-analytics">Back to Business Analytics</Link>
+  </main>;
+};
+
+const NativeSavesPage: React.FC = () => {
   const navigate = useNavigate();
   const { role } = useAuth();
   const canTrain = canUploadOrRetrain(role);

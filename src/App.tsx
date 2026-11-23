@@ -13,6 +13,9 @@ import { SavesPage } from "./pages/SavesPage";
 import { AdminPage } from "./pages/AdminPage";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
+import { hostedPreview } from "./lib/preview";
+import { PublishedReport } from "./components/dashboard/PublishedReport";
+
 const App: React.FC = () => {
   return (
     <Routes>
@@ -36,8 +39,12 @@ const App: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        <Route path="/business-analytics" element={<BusinessAnalyticsPage />} />
-        <Route path="/forecast-actions" element={<ForecastActions />} />
+        <Route path="/business-analytics" element={hostedPreview ? (
+          <PublishedReport>{snapshot => <BusinessAnalyticsPage snapshot={snapshot} />}</PublishedReport>
+        ) : <BusinessAnalyticsPage />} />
+        <Route path="/forecast-actions" element={hostedPreview ? (
+          <PublishedReport>{snapshot => <ForecastActions snapshot={snapshot} />}</PublishedReport>
+        ) : <ForecastActions />} />
         <Route
           path="/advanced"
           element={

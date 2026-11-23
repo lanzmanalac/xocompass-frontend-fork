@@ -2,10 +2,10 @@
   "rewrites": [
     {
       "source": "/backend/:path*",
-      "destination": "https://xocompass-248727915192.asia-southeast1.run.app/:path*"
+      "destination": "https://xocompass-viewer-preview-o5xmns0me-lanzmanalacs-projects.vercel.app/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/published-forecast(?:/|$)|training(?:/|$)).*)",
       "destination": "/index.html"
     }
   ]

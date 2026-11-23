@@ -1,3 +1,4 @@
+import type { PublicationSnapshot } from "../types/publication";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   CalendarRange,
@@ -43,6 +44,7 @@ interface MetricsRouteState {
 
 interface ForecastActionsProps {
   isBackgroundPreview?: boolean;
+  snapshot?: PublicationSnapshot;
 }
 
 type RiskFactorLabel = "Critical" | "High" | "Medium" | "Low";
@@ -599,6 +601,7 @@ const WeeklyDemandChart: React.FC<{
 
 export const ForecastActions: React.FC<ForecastActionsProps> = ({
   isBackgroundPreview = false,
+  snapshot,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -626,11 +629,14 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
   const preferredModelVersion =
     routeState?.selectedModelVersion ?? storedModelVersion ?? "";
 
-  const [forecastOutlook, setForecastOutlook] =
+  const [nativeForecastOutlook, setForecastOutlook] =
     useState<ForecastOutlookResponse | null>(null);
-  const [forecastGraph, setForecastGraph] = useState<ForecastGraphResponse | null>(null);
-  const [strategicActions, setStrategicActions] =
+  const [nativeForecastGraph, setForecastGraph] = useState<ForecastGraphResponse | null>(null);
+  const [nativeStrategicActions, setStrategicActions] =
     useState<StrategicActionsResponse | null>(null);
+  const forecastOutlook = snapshot?.forecast_outlook ?? nativeForecastOutlook;
+  const forecastGraph = snapshot?.forecast_graph ?? nativeForecastGraph;
+  const strategicActions = snapshot?.strategic_actions ?? nativeStrategicActions;
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [models, setModels] = useState<ModelDropdownItem[]>([]);
@@ -646,6 +652,7 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
   });
 
   useEffect(() => {
+    if (snapshot) return;
     const fetchModels = async () => {
       try {
         setIsLoadingModels(true);
@@ -660,13 +667,13 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
     };
 
     fetchModels();
-  }, []);
+  }, [snapshot]);
 
-  const hasNoData = !isLoadingModels && models.length === 0;
+  const hasNoData = !snapshot && !isLoadingModels && models.length === 0;
   const shouldShowColdStart = hasNoData && !isBackgroundPreview;
   const effectiveModelId = useMemo(
-    () => resolveEffectiveModelId(models, preferredModelId),
-    [models, preferredModelId]
+    () => snapshot ? null : resolveEffectiveModelId(models, preferredModelId),
+    [snapshot, models, preferredModelId]
   );
   const effectiveModelVersion = useMemo(() => {
     if (effectiveModelId == null) return preferredModelVersion;
@@ -968,7 +975,7 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
                 ? ` across the ${forecastHorizonWeeks}-week forward horizon.`
                 : "."}{" "}
               <span className="font-medium text-slate-700">
-                {effectiveModelId != null
+                {snapshot ? `Report ${snapshot.run_id}` : effectiveModelId != null
                   ? `Model ${effectiveModelVersion} (ID ${effectiveModelId})`
                   : "Selecting latest trained model…"}
               </span>
@@ -977,7 +984,7 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
 
         </div>
 
-        {isLoading && (
+        {!snapshot && isLoading && (
           <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[14px] text-slate-600 shadow-sm">
             Loading forecast stats from backend...
           </p>
@@ -989,7 +996,7 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
           </p>
         )}
 
-        {isLoadingModels && !isBackgroundPreview ? (
+        {!snapshot && isLoadingModels && !isBackgroundPreview ? (
           <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[14px] text-slate-600 shadow-sm">
             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-teal-600 border-t-transparent align-middle" />{" "}
             Loading model registry…
@@ -1077,6 +1084,23 @@ export const ForecastActions: React.FC<ForecastActionsProps> = ({
                   onToggle={toggleKpiCard}
                 />
               </section>
+
+              {snapshot && strategicActions && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="font-semibold">Strategic actions</h3>
+                  {strategicActions.generated_for_period && <p className="text-sm text-slate-600">{strategicActions.generated_for_period}</p>}
+                  {strategicActions.actions.length === 0 && <p>No actions in this report.</p>}
+                  <ul className="mt-3 space-y-3">
+                    {strategicActions.actions.map((item, index) => (
+                      <li className="border-l-2 border-teal-600 pl-3" key={index}>
+                        <p className="text-xs text-teal-800">{item.priority} · {item.category}</p>
+                        <p className="font-medium">{item.action}</p>
+                        <p className="text-sm text-slate-600">{item.trigger}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
               <section className="grid gap-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
