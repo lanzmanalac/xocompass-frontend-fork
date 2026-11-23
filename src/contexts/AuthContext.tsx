@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const bootstrapRefresh = useRef<ReturnType<typeof authService.refresh> | null>(null);
 
   const hardLogout = useCallback(() => {
     localStorage.removeItem(REFRESH_STORAGE_KEY);
@@ -96,7 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setAccessToken(null);
 
       try {
-        const tokens = await authService.refresh({ refresh_token: refreshToken });
+        // Strict Mode can restart this effect while the one-use token is rotating.
+        bootstrapRefresh.current ??= authService.refresh({ refresh_token: refreshToken })
+          .finally(() => { bootstrapRefresh.current = null; });
+        const tokens = await bootstrapRefresh.current;
         if (cancelled) return;
         localStorage.setItem(REFRESH_STORAGE_KEY, tokens.refresh_token);
         authAccessHolder.token = tokens.access_token;

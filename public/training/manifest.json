@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "pyodide_version": "314.0.8",
+  "packages": [
+    "statsmodels",
+    "matplotlib",
+    "xarray",
+    "tzdata",
+    "pyodide-unix-timezones",
+    "toolz",
+    "cloudpickle",
+    "pyyaml",
+    "fsspec",
+    "scikit-learn",
+    "urllib3",
+    "setuptools",
+    "joblib"
+  ],
+  "pmdarima_wheel": "pmdarima-2.1.1-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+}
